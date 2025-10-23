@@ -1,11 +1,14 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "framework": "nextjs",
+  "version": 2,
+  "builds": [
+    {
+      "src": "next.config.js",
+      "use": "@vercel/next"
+    }
+  ],
   "functions": {
-    "src/app/**/*.tsx": {
-      "runtime": "nodejs18.x"
+    "api/**/*.js": {
+      "runtime": "nodejs20.x"
     }
   },
   "headers": [
