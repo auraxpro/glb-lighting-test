@@ -24,27 +24,106 @@ interface SceneProps {
     backgroundColor: string
     enableShadows: boolean
     shadowOpacity: number
+    part1Color: string
+    part2Color: string
+    part3Color: string
+    part4Color: string
   }
 }
 
 function GLBModel({ lightingSettings }: { lightingSettings: SceneProps['lightingSettings'] }) {
   const group = useRef<THREE.Group>(null)
-  const gltf = useGLTF('/models/4-piece.glb')
+  
+  let gltf
+  try {
+    gltf = useGLTF('/models/4-piece.glb')
+  } catch (error) {
+    console.error('Error loading GLB:', error)
+    throw error // This will cause Suspense to show fallback
+  }
 
   useEffect(() => {
-    if (gltf?.scene) {
-      // Apply material settings to all meshes in the model
-      gltf.scene.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material) {
-          if (child.material instanceof THREE.MeshStandardMaterial) {
-            child.material.roughness = lightingSettings.roughness
-            child.material.metalness = lightingSettings.metalness
-            child.material.needsUpdate = true
+    if (!gltf?.scene) return
+
+    const applyMaterialSettings = () => {
+      try {
+        // Apply material settings and colors to specific parts
+        gltf.scene.traverse((child) => {
+          try {
+            if (child instanceof THREE.Mesh && child.material) {
+              // Handle both single materials and material arrays
+              const materials = Array.isArray(child.material) ? child.material : [child.material]
+              
+              materials.forEach((material, index) => {
+                try {
+                  if (material instanceof THREE.MeshStandardMaterial) {
+                    // Clone material if it's shared to avoid affecting other meshes
+                    if (!material.userData.isCloned) {
+                      const clonedMaterial = material.clone()
+                      clonedMaterial.userData.isCloned = true
+                      
+                      if (Array.isArray(child.material)) {
+                        child.material[index] = clonedMaterial
+                      } else {
+                        child.material = clonedMaterial
+                      }
+                      material = clonedMaterial
+                    }
+                    
+                    // Apply global material properties safely
+                    if (typeof lightingSettings.roughness === 'number' && !isNaN(lightingSettings.roughness)) {
+                      material.roughness = Math.max(0, Math.min(1, lightingSettings.roughness))
+                    }
+                    if (typeof lightingSettings.metalness === 'number' && !isNaN(lightingSettings.metalness)) {
+                      material.metalness = Math.max(0, Math.min(1, lightingSettings.metalness))
+                    }
+                    
+                    // Apply specific colors based on part name
+                    const partName = child.name.toLowerCase();
+                    console.log('Processing mesh:', partName)
+                    console.log('Lighting settings:', lightingSettings)
+                    
+                    if (partName.includes('part1002') || partName.includes('part1_002')) {
+                      if (lightingSettings.part1Color) {
+                        material.color.set(lightingSettings.part1Color)
+                      }
+                    } else if (partName.includes('part2002') || partName.includes('part2_002')) {
+                      if (lightingSettings.part2Color) {
+                        material.color.set(lightingSettings.part2Color)
+                      }
+                    } else if (partName.includes('part3004') || partName.includes('part3_004')) {
+                      if (lightingSettings.part3Color) {
+                        material.color.set(lightingSettings.part3Color)
+                      }
+                    } else if (partName.includes('part4004') || partName.includes('part4_004')) {
+                      if (lightingSettings.part4Color) {
+                        material.color.set(lightingSettings.part4Color)
+                      }
+                    }
+                    
+                    material.needsUpdate = true
+                  }
+                } catch (materialError) {
+                  console.warn('Error processing material:', materialError)
+                }
+              })
+            }
+          } catch (childError) {
+            console.warn('Error processing child:', childError)
           }
-        }
-      })
+        })
+      } catch (error) {
+        console.error('Error applying materials:', error)
+      }
     }
-  }, [gltf, lightingSettings.roughness, lightingSettings.metalness])
+
+    // Use requestAnimationFrame to ensure the update happens at the right time
+    const frameId = requestAnimationFrame(applyMaterialSettings)
+    
+    return () => {
+      cancelAnimationFrame(frameId)
+    }
+  }, [gltf, lightingSettings.roughness, lightingSettings.metalness, lightingSettings.part1Color, lightingSettings.part2Color, lightingSettings.part3Color, lightingSettings.part4Color])
 
   return (
     <group ref={group}>
@@ -57,27 +136,39 @@ function FallbackModel({ lightingSettings }: { lightingSettings: SceneProps['lig
   const group = useRef<THREE.Group>(null)
 
   return (
-    <group ref={group}>
-      <mesh position={[0, 0, 0]}>
+    <group ref={group} scale={[3, 3, 3]}>
+      {/* Part1.002 representation */}
+      <mesh position={[0, 0, 0]} name="Part1.002">
         <boxGeometry args={[2, 2, 2]} />
         <meshStandardMaterial 
-          color="#888888"
+          color={lightingSettings.part1Color}
           roughness={lightingSettings.roughness}
           metalness={lightingSettings.metalness}
         />
       </mesh>
-      <mesh position={[3, 0, 0]}>
+      {/* Part2.002 representation */}
+      <mesh position={[3, 0, 0]} name="Part2.002">
         <cylinderGeometry args={[0.5, 0.5, 2]} />
         <meshStandardMaterial 
-          color="#666666"
+          color={lightingSettings.part2Color}
           roughness={lightingSettings.roughness}
           metalness={lightingSettings.metalness}
         />
       </mesh>
-      <mesh position={[-3, 0, 0]}>
+      {/* Part2.004 representation */}
+      <mesh position={[-3, 0, 0]} name="Part2.004">
         <sphereGeometry args={[1]} />
         <meshStandardMaterial 
-          color="#aaaaaa"
+          color={lightingSettings.part3Color}
+          roughness={lightingSettings.roughness}
+          metalness={lightingSettings.metalness}
+        />
+      </mesh>
+      {/* Part4.004 representation */}
+      <mesh position={[0, 3, 0]} name="Part4.004">
+        <torusGeometry args={[1, 0.3]} />
+        <meshStandardMaterial 
+          color={lightingSettings.part4Color}
           roughness={lightingSettings.roughness}
           metalness={lightingSettings.metalness}
         />
@@ -98,13 +189,19 @@ function Lighting({ lightingSettings }: { lightingSettings: SceneProps['lighting
   const directionalLightRef = useRef<THREE.DirectionalLight>(null)
 
   useEffect(() => {
-    if (directionalLightRef.current) {
-      const angle = (lightingSettings.directionalLightAngle * Math.PI) / 180
-      directionalLightRef.current.position.set(
-        Math.sin(angle) * 10,
-        5,
-        Math.cos(angle) * 10
-      )
+    try {
+      if (directionalLightRef.current && typeof lightingSettings.directionalLightAngle === 'number') {
+        const angle = (lightingSettings.directionalLightAngle * Math.PI) / 180
+        if (!isNaN(angle)) {
+          directionalLightRef.current.position.set(
+            Math.sin(angle) * 10,
+            5,
+            Math.cos(angle) * 10
+          )
+        }
+      }
+    } catch (error) {
+      console.warn('Error updating directional light position:', error)
     }
   }, [lightingSettings.directionalLightAngle])
 
@@ -112,15 +209,15 @@ function Lighting({ lightingSettings }: { lightingSettings: SceneProps['lighting
     <>
       {/* Ambient Light */}
       <ambientLight 
-        color={lightingSettings.ambientLightColor} 
-        intensity={lightingSettings.ambientLightIntensity} 
+        color={lightingSettings.ambientLightColor || '#ffffff'} 
+        intensity={Math.max(0, Math.min(5, lightingSettings.ambientLightIntensity || 0.5))} 
       />
       
       {/* Directional Light */}
       <directionalLight
         ref={directionalLightRef}
-        intensity={lightingSettings.directionalLightIntensity}
-        castShadow={lightingSettings.enableShadows}
+        intensity={Math.max(0, Math.min(10, lightingSettings.directionalLightIntensity || 1))}
+        castShadow={Boolean(lightingSettings.enableShadows)}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-far={50}
@@ -165,7 +262,7 @@ export default function Scene({ lightingSettings }: SceneProps) {
     <div className="scene-container">
       <Canvas
         shadows={lightingSettings.enableShadows}
-        camera={{ position: [5, 5, 5], fov: 50 }}
+        camera={{ position: [15, 10, 15], fov: 50 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
       >
         <Suspense fallback={null}>
@@ -177,9 +274,9 @@ export default function Scene({ lightingSettings }: SceneProps) {
           {lightingSettings.enableShadows && (
             <ContactShadows
               opacity={lightingSettings.shadowOpacity}
-              scale={10}
+              scale={20}
               blur={1}
-              far={10}
+              far={20}
               resolution={256}
               color="#000000"
             />
@@ -189,15 +286,12 @@ export default function Scene({ lightingSettings }: SceneProps) {
             enablePan={true}
             enableZoom={true}
             enableRotate={true}
-            minDistance={2}
-            maxDistance={20}
+            minDistance={5}
+            maxDistance={50}
+            target={[0, 0, 0]}
           />
         </Suspense>
       </Canvas>
-      
-      <div className="loading">
-        Loading 3D Scene...
-      </div>
     </div>
   )
 }

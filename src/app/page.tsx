@@ -1,15 +1,21 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import ControlsPanel from '@/components/ControlsPanel'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 // Dynamically import Scene to avoid SSR issues with Three.js
 const Scene = dynamic(() => import('@/components/Scene'), {
   ssr: false,
   loading: () => (
     <div className="scene-container">
-      <div className="loading">Loading 3D Scene...</div>
+      <div className="loading">
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '18px', marginBottom: '10px' }}>Loading 3D Engine...</div>
+          <div style={{ fontSize: '14px', color: '#888' }}>Initializing Three.js and WebGL</div>
+        </div>
+      </div>
     </div>
   )
 })
@@ -27,6 +33,10 @@ interface LightingSettings {
   backgroundColor: string
   enableShadows: boolean
   shadowOpacity: number
+  part1Color: string
+  part2Color: string
+  part3Color: string
+  part4Color: string
 }
 
 const defaultSettings: LightingSettings = {
@@ -41,14 +51,38 @@ const defaultSettings: LightingSettings = {
   backgroundType: 'hdri',
   backgroundColor: '#2a2a2a',
   enableShadows: true,
-  shadowOpacity: 0.3
+  shadowOpacity: 0.3,
+  part1Color: '#888888',
+  part2Color: '#666666',
+  part3Color: '#aaaaaa',
+  part4Color: '#999999'
 }
 
 export default function Home() {
   const [lightingSettings, setLightingSettings] = useState<LightingSettings>(defaultSettings)
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleSettingsChange = useCallback((newSettings: Partial<LightingSettings>) => {
-    setLightingSettings(prev => ({ ...prev, ...newSettings }))
+    try {
+      // Clear any pending updates
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+      }
+
+      // Debounce the settings update to prevent rapid changes
+      updateTimeoutRef.current = setTimeout(() => {
+        setLightingSettings(prev => {
+          try {
+            return { ...prev, ...newSettings }
+          } catch (error) {
+            console.error('Error updating lighting settings:', error)
+            return prev // Return previous settings if update fails
+          }
+        })
+      }, 50) // 50ms debounce
+    } catch (error) {
+      console.error('Error in handleSettingsChange:', error)
+    }
   }, [])
 
   const handleExportSettings = useCallback(() => {
@@ -72,9 +106,6 @@ export default function Home() {
     linkElement.setAttribute('href', dataUri)
     linkElement.setAttribute('download', exportFileDefaultName)
     linkElement.click()
-
-    // Also log to console for easy copying
-    console.log('🎨 Exported Lighting Settings:', exportData)
     
     // Show success message
     alert('Settings exported successfully! Check your downloads folder and browser console.')
@@ -82,47 +113,21 @@ export default function Home() {
 
   return (
     <main>
-      <Scene lightingSettings={lightingSettings} />
+      <ErrorBoundary>
+        <Scene lightingSettings={lightingSettings} />
+      </ErrorBoundary>
       <ControlsPanel 
         onSettingsChange={handleSettingsChange}
         onExportSettings={handleExportSettings}
       />
       
-      {/* Info Panel */}
-      <div style={{
-        position: 'absolute',
-        top: '20px',
-        left: '20px',
-        background: 'rgba(0, 0, 0, 0.8)',
-        padding: '15px',
-        borderRadius: '8px',
-        color: 'white',
-        fontSize: '14px',
-        maxWidth: '300px',
-        zIndex: 1000
-      }}>
-        <h3 style={{ margin: '0 0 10px 0', color: '#007acc' }}>🎨 GLB Lighting Test</h3>
-        <p style={{ margin: '5px 0', lineHeight: '1.4' }}>
-          • Use the controls panel to adjust lighting and materials
-        </p>
-        <p style={{ margin: '5px 0', lineHeight: '1.4' }}>
-          • Drag to rotate, scroll to zoom, right-click to pan
-        </p>
-        <p style={{ margin: '5px 0', lineHeight: '1.4' }}>
-          • Export settings when you find the perfect look
-        </p>
-        <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#888' }}>
-          Place your GLB model in <code>/public/models/4-piece.glb</code>
-        </p>
-      </div>
-
       {/* Quick Export Button */}
       <button 
         className="export-button"
         onClick={handleExportSettings}
         title="Export current lighting settings as JSON"
       >
-        📥 Export Settings
+        Export Settings
       </button>
     </main>
   )

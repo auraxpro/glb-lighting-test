@@ -1,7 +1,7 @@
 'use client'
 
 import { useControls, button, folder } from 'leva'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 interface ControlsPanelProps {
   onSettingsChange: (settings: any) => void
@@ -9,6 +9,8 @@ interface ControlsPanelProps {
 }
 
 export default function ControlsPanel({ onSettingsChange, onExportSettings }: ControlsPanelProps) {
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
   const settings = useControls({
     // Lighting Controls
     'Environment & Lighting': folder({
@@ -70,6 +72,26 @@ export default function ControlsPanel({ onSettingsChange, onExportSettings }: Co
         label: 'Metalness'
       }
     }),
+
+    // Part Color Controls
+    'Part Colors': folder({
+      part1Color: {
+        value: '#888888',
+        label: 'Part1.002 Color'
+      },
+      part2Color: {
+        value: '#666666',
+        label: 'Part2.002 Color'
+      },
+      part2_004Color: {
+        value: '#aaaaaa',
+        label: 'Part2.004 Color'
+      },
+      part4Color: {
+        value: '#999999',
+        label: 'Part4.004 Color'
+      }
+    }),
     
     // Background Controls
     'Background & Scene': folder({
@@ -109,10 +131,28 @@ export default function ControlsPanel({ onSettingsChange, onExportSettings }: Co
     })
   })
 
-  // Update parent component whenever settings change
-  useCallback(() => {
-    onSettingsChange(settings)
-  }, [settings, onSettingsChange])()
+  // Update parent component whenever settings change with debouncing
+  useEffect(() => {
+    // Clear any pending updates
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current)
+    }
+
+    // Debounce the settings update
+    updateTimeoutRef.current = setTimeout(() => {
+      try {
+        onSettingsChange(settings)
+      } catch (error) {
+        console.error('Error updating settings:', error)
+      }
+    }, 100) // 100ms debounce for Leva controls
+
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+      }
+    }
+  }, [settings, onSettingsChange])
 
   return null // Leva handles its own rendering
 }
