@@ -26,8 +26,9 @@ interface SceneProps {
     shadowOpacity: number
     part1Color: string
     part2Color: string
-    part3Color: string
-    part4Color: string
+    part3Color?: string    // Optional - only for 4-piece model
+    part4Color?: string    // Optional - only for 4-piece model
+    selectedModel: string
   }
 }
 
@@ -36,7 +37,8 @@ function GLBModel({ lightingSettings }: { lightingSettings: SceneProps['lighting
   
   let gltf
   try {
-    gltf = useGLTF('/models/4-piece.glb')
+    const modelPath = `/models/${lightingSettings.selectedModel}`
+    gltf = useGLTF(modelPath)
   } catch (error) {
     console.error('Error loading GLB:', error)
     throw error // This will cause Suspense to show fallback
@@ -78,27 +80,39 @@ function GLBModel({ lightingSettings }: { lightingSettings: SceneProps['lighting
                       material.metalness = Math.max(0, Math.min(1, lightingSettings.metalness))
                     }
                     
-                    // Apply specific colors based on part name
+                    // Apply specific colors based on part name and model
                     const partName = child.name.toLowerCase();
-                    console.log('Processing mesh:', partName)
-                    console.log('Lighting settings:', lightingSettings)
                     
-                    if (partName.includes('part1002') || partName.includes('part1_002')) {
-                      if (lightingSettings.part1Color) {
-                        material.color.set(lightingSettings.part1Color)
+                    if (lightingSettings.selectedModel === '2-piece.glb') {
+                      // 2-piece model part matching
+                      if (partName.includes('part1.006') || partName.includes('part1006')) {
+                        if (lightingSettings.part1Color) {
+                          material.color.set(lightingSettings.part1Color)
+                        }
+                      } else if (partName.includes('part2.006') || partName.includes('part2006')) {
+                        if (lightingSettings.part2Color) {
+                          material.color.set(lightingSettings.part2Color)
+                        }
                       }
-                    } else if (partName.includes('part2002') || partName.includes('part2_002')) {
-                      if (lightingSettings.part2Color) {
-                        material.color.set(lightingSettings.part2Color)
-                      }
-                    } else if (partName.includes('part3004') || partName.includes('part3_004')) {
-                      if (lightingSettings.part3Color) {
-                        material.color.set(lightingSettings.part3Color)
-                      }
-                    } else if (partName.includes('part4004') || partName.includes('part4_004')) {
-                      if (lightingSettings.part4Color) {
-                        material.color.set(lightingSettings.part4Color)
-                      }
+                    } else {
+                      // 4-piece model part matching
+                      if (partName.includes('Part1002') || partName.includes('part1002')) {
+                        if (lightingSettings.part1Color) {
+                          material.color.set(lightingSettings.part1Color)
+                        }
+                      } else if (partName.includes('Part2002') || partName.includes('part2002')) {
+                        if (lightingSettings.part2Color) {
+                          material.color.set(lightingSettings.part2Color)
+                        }
+                        } else if (partName.includes('Part3004') || partName.includes('part3004')) {
+                          if (lightingSettings.part3Color) {
+                            material.color.set(lightingSettings.part3Color)
+                          }
+                        } else if (partName.includes('Part4004') || partName.includes('part4004')) {
+                          if (lightingSettings.part4Color) {
+                            material.color.set(lightingSettings.part4Color)
+                          }
+                        }
                     }
                     
                     material.needsUpdate = true
@@ -123,7 +137,7 @@ function GLBModel({ lightingSettings }: { lightingSettings: SceneProps['lighting
     return () => {
       cancelAnimationFrame(frameId)
     }
-  }, [gltf, lightingSettings.roughness, lightingSettings.metalness, lightingSettings.part1Color, lightingSettings.part2Color, lightingSettings.part3Color, lightingSettings.part4Color])
+  }, [gltf, lightingSettings.selectedModel, lightingSettings.roughness, lightingSettings.metalness, lightingSettings.part1Color, lightingSettings.part2Color, lightingSettings.part3Color, lightingSettings.part4Color])
 
   return (
     <group ref={group}>
@@ -137,26 +151,26 @@ function FallbackModel({ lightingSettings }: { lightingSettings: SceneProps['lig
 
   return (
     <group ref={group} scale={[3, 3, 3]}>
-      {/* Part1.002 representation */}
-      <mesh position={[0, 0, 0]} name="Part1.002">
-        <boxGeometry args={[2, 2, 2]} />
+      {/* Part1002 representation */}
+      <mesh position={[0, 0, 0]} name="Part1002">
+        <cylinderGeometry args={[0.8, 0.8, 2]} />
         <meshStandardMaterial 
           color={lightingSettings.part1Color}
           roughness={lightingSettings.roughness}
           metalness={lightingSettings.metalness}
         />
       </mesh>
-      {/* Part2.002 representation */}
-      <mesh position={[3, 0, 0]} name="Part2.002">
-        <cylinderGeometry args={[0.5, 0.5, 2]} />
+      {/* Part2002 representation */}
+      <mesh position={[3, 0, 0]} name="Part2002">
+        <boxGeometry args={[1.5, 1.5, 1.5]} />
         <meshStandardMaterial 
           color={lightingSettings.part2Color}
           roughness={lightingSettings.roughness}
           metalness={lightingSettings.metalness}
         />
       </mesh>
-      {/* Part2.004 representation */}
-      <mesh position={[-3, 0, 0]} name="Part2.004">
+      {/* Part3004 representation */}
+      <mesh position={[-3, 0, 0]} name="Part3004">
         <sphereGeometry args={[1]} />
         <meshStandardMaterial 
           color={lightingSettings.part3Color}
@@ -164,9 +178,9 @@ function FallbackModel({ lightingSettings }: { lightingSettings: SceneProps['lig
           metalness={lightingSettings.metalness}
         />
       </mesh>
-      {/* Part4.004 representation */}
-      <mesh position={[0, 3, 0]} name="Part4.004">
-        <torusGeometry args={[1, 0.3]} />
+      {/* Part4004 representation */}
+      <mesh position={[0, 3, 0]} name="Part4004">
+        <torusGeometry args={[0.8, 0.2]} />
         <meshStandardMaterial 
           color={lightingSettings.part4Color}
           roughness={lightingSettings.roughness}

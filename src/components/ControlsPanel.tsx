@@ -11,6 +11,41 @@ interface ControlsPanelProps {
 export default function ControlsPanel({ onSettingsChange, onExportSettings }: ControlsPanelProps) {
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
+  // Get the current model selection to determine which part controls to show
+  const modelSettings = useControls('Model Selection', {
+    selectedModel: {
+      value: '4-piece.glb',
+      options: {
+        '4-Piece Model': '4-piece.glb',
+        '2-Piece Model': '2-piece.glb'
+      },
+      label: 'GLB Model'
+    }
+  })
+
+  // Part controls - dynamic based on selected model
+  const partControls = useControls('Part Colors', {
+    part1Color: {
+      value: '#666666',
+      label: 'Part1 Color'
+    },
+    part2Color: {
+      value: '#aaaaaa',
+      label: 'Part2 Color'
+    },
+    // Only show these controls for 4-piece model
+    ...(modelSettings.selectedModel === '4-piece.glb' && {
+      part3Color: {
+        value: '#888888',
+        label: 'Part3 Color'
+      },
+      part4Color: {
+        value: '#999999',
+        label: 'Part4 Color'
+      }
+    })
+  })
+
   const settings = useControls({
     // Lighting Controls
     'Environment & Lighting': folder({
@@ -72,26 +107,6 @@ export default function ControlsPanel({ onSettingsChange, onExportSettings }: Co
         label: 'Metalness'
       }
     }),
-
-    // Part Color Controls
-    'Part Colors': folder({
-      part1Color: {
-        value: '#888888',
-        label: 'Part1.002 Color'
-      },
-      part2Color: {
-        value: '#666666',
-        label: 'Part2.002 Color'
-      },
-      part2_004Color: {
-        value: '#aaaaaa',
-        label: 'Part2.004 Color'
-      },
-      part4Color: {
-        value: '#999999',
-        label: 'Part4.004 Color'
-      }
-    }),
     
     // Background Controls
     'Background & Scene': folder({
@@ -141,7 +156,13 @@ export default function ControlsPanel({ onSettingsChange, onExportSettings }: Co
     // Debounce the settings update
     updateTimeoutRef.current = setTimeout(() => {
       try {
-        onSettingsChange(settings)
+        // Combine model settings, part controls, and other settings
+        const combinedSettings = {
+          ...modelSettings,
+          ...(partControls as any),
+          ...settings
+        }
+        onSettingsChange(combinedSettings)
       } catch (error) {
         console.error('Error updating settings:', error)
       }
@@ -152,7 +173,7 @@ export default function ControlsPanel({ onSettingsChange, onExportSettings }: Co
         clearTimeout(updateTimeoutRef.current)
       }
     }
-  }, [settings, onSettingsChange])
+  }, [modelSettings, partControls, settings, onSettingsChange])
 
   return null // Leva handles its own rendering
 }
